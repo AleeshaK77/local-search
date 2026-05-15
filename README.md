@@ -47,7 +47,7 @@ The following graph illustrates how the conflict count (Energy) drops over time 
 ### Performance Summary (N = 8)
 
 | Algorithm | Success Rate | Avg. Time | 
-| :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- | 
 | **Hill-Climbing** | 12% (Eventual) | < 0.002s | 
 | **Simulated Annealing** | ~100% | ~0.35s |
 | **Genetic Algorithm** | ~96% | ~0.92s |
