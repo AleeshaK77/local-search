@@ -1,59 +1,94 @@
-# N-Queens Local Search Analysis 
+# N-Queens Local Search Analysis
 
-This project implements and compares three fundamental local search algorithms to solve the $N$-Queens problem.
-
-## The Challenge
-The $N$-Queens problem requires placing $N$ queens on an $N \times N$ chessboard such that no two queens threaten each other (no two queens share the same row, column, or diagonal). 
-
-In this project, we represent the board as a **1D array** of length $N$, where the index represents the row and the value represents the column. This representation inherently solves the row conflict, reducing the search space and allowing the algorithms to focus on resolving column and diagonal threats.
+This project implements and benchmarks three foundational local search algorithms — Hill-Climbing, Simulated Annealing, and Genetic Algorithms — on the $N$-Queens problem. The primary objective is to characterise how stochastic exploration, temperature scheduling, and population-based search influence solution quality, convergence rate, and robustness to local optima.
 
 ---
 
-##  Algorithm Exposition
+## Problem Formulation
 
-### 1. Hill-Climbing (Greedy Local Search)
-Hill-climbing is a loop that continually moves in the direction of increasing value (or decreasing cost). It is often called **greedy local search** because it grabs a good neighbor state without thinking ahead.
-
-* **Strengths:** It often makes rapid progress toward a solution because it is usually quite easy to improve a bad state.
-* **Weaknesses:** It is susceptible to **Local Maxima** (peaks higher than neighbors but lower than the global optimum), **Ridges**, and **Plateaux** (flat areas where the algorithm gets lost).
-* **Implementation:** To overcome incompleteness, we implement **Random-Restart Hill Climbing**. It conducts a series of searches from randomly generated initial states until a goal is found. 
-
-### 2. Simulated Annealing
-Simulated Annealing combines hill-climbing with a random walk to achieve both efficiency and completeness. Inspired by the metallurgical process of tempering metal, it minimizes "cost" (conflicts) by "shaking" the system.
-
-* **The Logic:** The algorithm picks a random move. If the move improves the situation, it is always accepted. Otherwise, it accepts the move with a probability that decreases over time as the **Temperature ($T$)** drops.
-* **Implementation Note:** While the textbook suggests an exponential decay, this project utilizes **Linear Decay** ($T = T - \text{constant}$), as it was found to provide more stable convergence for the $N$-Queens state space.
-
-### 3. Genetic Algorithms
-A Genetic Algorithm (GA) is a variant of stochastic beam search that mimics biological evolution. It maintains a **population** of states rather than a single node.
-
-* **Fitness Function:** Each state is rated by a fitness function (the inverse of conflicts).
-* **Selection & Crossover:** Pairs are selected for reproduction based on fitness. A random **crossover point** is chosen, and offspring are created by combining the "DNA" of the parents.
-* **Mutation:** Random mutations are introduced with a small probability to maintain diversity and explore new areas of the state space.
+The $N$-Queens problem requires placing $N$ queens on an $N \times N$ chessboard such that no two queens mutually threaten each other — that is, no two queens share a row, column, or diagonal. The state space is represented as a 1D array of length $N$, where index $i$ denotes the row and the value at index $i$ denotes the column of the queen in that row. This encoding eliminates row conflicts by construction, reducing the search space to configurations that differ only in column and diagonal assignments.
 
 ---
 
-##  Results & Visualization
+## Project Architecture
 
-### Convergence Comparison
-The following graph illustrates how the conflict count (Energy) drops over time across different strategies.
-
-*![Results Graph](convergence_plot.png)*
-
-**Important Notes on the Graph:**
-* **Hill-Climbing:** You will notice Hill-Climbing is not represented on the convergence line graph. Because it is a purely greedy algorithm, when a solution exists in its immediate vicinity, it converges the **quickest** of all algorithms. Its "history" is often only a few steps long, making it appear as a single dot on a log-scale graph designed to show the long-term exploration of SA and GA.
-* **Simulated Annealing Smoothing:** The SA line is smoothed using a moving average to show the general trend of the cooling process, filtering out the high-frequency stochastic "jumps" used to escape local minima.
-
-### Performance Summary (N = 8)
-
-| Algorithm | Success Rate | Avg. Time | 
-| :--- | :--- | :--- | 
-| **Hill-Climbing** | 12% | < 0.002s | 
-| **Simulated Annealing** | ~100% | ~0.35s |
-| **Genetic Algorithm** | ~96% | ~0.92s |
+| Module | Responsibility |
+| :--- | :--- |
+| `hill_climbing.py` | Random-restart steepest-ascent hill-climbing |
+| `simulated_annealing.py` | Simulated annealing with linear temperature decay |
+| `genetic_algorithm.py` | Genetic algorithm with fitness-proportionate selection |
+| `benchmark.py` | Comparative analysis suite and convergence visualisation |
 
 ---
 
-##  Setup and Usage
-1. **Requirements:** `python 3.x`, `matplotlib`, `numpy`
-2. **Run:** Execute `python
+## Theoretical Background
+
+### Hill-Climbing (Steepest-Ascent)
+
+Hill-climbing is a loop that continually moves in the direction of increasing value, terminating when it reaches a state whose neighbours are all of lower value. The algorithm maintains no search tree — only the current state and its objective value — and does not look ahead beyond the immediate neighbourhood. When multiple successors share the highest value, one is chosen uniformly at random. Hill-climbing is characterised as **greedy local search**: it exploits the local landscape without anticipating downstream consequences, and as a result often makes rapid initial progress toward a solution.
+
+Incompleteness, however, is a fundamental liability. Hill-climbing is susceptible to three pathological landscape features. **Local maxima** are peaks higher than all neighbouring states but lower than the global optimum; the algorithm ascends toward them and becomes trapped. **Ridges** produce sequences of local maxima that greedy ascent cannot navigate efficiently. **Plateaux** — flat regions of the state-space landscape — may be flat local maxima from which no uphill exit exists, or shoulders from which progress is possible but not guaranteed.
+
+To overcome incompleteness, **random-restart hill-climbing** conducts a series of searches from independently and uniformly sampled initial states until a goal is found. If each individual search succeeds with probability $p$, the expected number of restarts is $1/p$. The procedure is trivially complete with probability approaching 1, since it will eventually sample a goal state as its initial condition.
+
+---
+
+### Simulated Annealing
+
+A hill-climbing algorithm that never accepts downhill moves is guaranteed to be incomplete. A purely random walk — selecting a successor uniformly at random — is complete but prohibitively inefficient. Simulated annealing interpolates between these extremes, combining the uphill tendency of hill-climbing with controlled stochastic exploration to achieve both efficiency and completeness.
+
+The algorithm is motivated by the metallurgical process of annealing, in which a material is heated to a high temperature and gradually cooled, allowing it to settle into a low-energy crystalline state. Rather than selecting the best available move, simulated annealing selects a *random* move at each step. If the move improves the objective, it is accepted unconditionally. Otherwise, it is accepted with probability
+
+$$P(\text{accept}) = e^{\Delta E / T},$$
+
+where $\Delta E < 0$ is the change in objective value and $T$ is the current temperature. This probability decreases both with the magnitude of the deterioration and with the temperature: early in the search, when $T$ is high, poor moves are frequently accepted, enabling escape from local minima; as $T$ falls, the algorithm becomes increasingly selective. If the cooling schedule reduces $T$ sufficiently slowly, the algorithm finds a global optimum with probability approaching 1 (Russell & Norvig, 2010).
+
+**Implementation note.** The canonical schedule prescribes exponential decay ($T \leftarrow \alpha T$, $\alpha < 1$). For the $N$-Queens state space, linear decay ($T \leftarrow T - \delta$) was found empirically to yield more stable convergence, providing a more uniform exploration budget across the early search phase before transitioning sharply to exploitation near termination.
+
+---
+
+### Genetic Algorithms
+
+A genetic algorithm (GA) is a variant of stochastic beam search in which successor states are generated by combining *two* parent states rather than by modifying a single state. GAs maintain a **population** of $k$ candidate states, each evaluated by a **fitness function** that returns higher values for better states — here, the inverse of the number of pairwise conflicts.
+
+At each generation, individuals are selected for reproduction with probability proportional to their fitness score. For each selected pair, a **crossover point** is chosen uniformly at random; offspring inherit the first segment of one parent's encoding and the remainder of the other's. When parents are dissimilar, crossover can produce offspring far from either parent, enabling large steps through the state space early in search when population diversity is high, and progressively smaller steps as the population converges. Finally, each position in the offspring is subject to **mutation** with a small independent probability, introducing diversity and preventing premature convergence to suboptimal regions.
+
+The primary advantage of GAs over single-state local search lies in the crossover operation: it combines large blocks of structure that have evolved independently to perform useful functions, raising the effective granularity of search (Russell & Norvig, 2010).
+
+---
+
+## Results
+
+### Performance Summary ($N = 8$)
+
+Results are reported across repeated runs; timing is recorded in milliseconds.
+
+| Algorithm | Success Rate | Avg. Time (ms) |
+| :--- | :---: | :---: |
+| Hill-Climbing (random restart) | 12% per restart | < 2 |
+| Simulated Annealing | ~100% | ~350 |
+| Genetic Algorithm | ~96% | ~920 |
+
+Hill-climbing achieves a low per-restart success rate of 12%, consistent with the density of local maxima in the $N$-Queens landscape; random restarts recover completeness at the cost of repeated independent searches. Simulated annealing achieves near-certain success by accepting deteriorating moves during the high-temperature phase, at the cost of longer runtime. The genetic algorithm approaches but does not match simulated annealing's success rate, reflecting occasional premature convergence when population diversity is lost before a goal state is reached.
+
+### Convergence
+
+![Convergence plot](convergence_plot.png)
+
+The convergence plot reports conflict count (energy) as a function of iterations for simulated annealing and the genetic algorithm. Hill-climbing is omitted: as a purely greedy algorithm, when a solution exists within the immediate neighbourhood of the initial state, it converges in a small number of steps — too few to be legible on a scale designed to capture the long-horizon behaviour of SA and GA. The simulated annealing curve is smoothed via a moving average to suppress high-frequency stochastic fluctuations and expose the underlying cooling trend.
+
+---
+
+## Reproduction
+
+```bash
+python benchmark.py
+```
+
+Requirements: `python 3.x`, `matplotlib`, `numpy`
+
+---
+
+## References
+
+Russell, S., & Norvig, P. (2010). *Artificial Intelligence: A Modern Approach* (3rd ed.). Prentice Hall.
